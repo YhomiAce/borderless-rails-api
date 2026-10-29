@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
     environment: 'node',
+    env: { NODE_ENV: 'test', LOG_LEVEL: 'silent' },
     projects: [
       {
         extends: true,
