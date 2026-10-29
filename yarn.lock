@@ -1668,6 +1668,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@testcontainers/rabbitmq@npm:^12.2.1":
+  version: 12.2.1
+  resolution: "@testcontainers/rabbitmq@npm:12.2.1"
+  dependencies:
+    testcontainers: "npm:^12.2.1"
+  checksum: 10c0/19b2bb1b29bcec4259d3991a3bf98a19baed1e5bd3fe9a297c398ad3846bac5627646bde8b8c908c48199c59ac492177d36c5714fee4c29e2f4305b8bde39852
+  languageName: node
+  linkType: hard
+
 "@tokenizer/inflate@npm:^0.4.1":
   version: 0.4.1
   resolution: "@tokenizer/inflate@npm:0.4.1"
@@ -2398,6 +2407,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"amqplib@npm:^2.2.0":
+  version: 2.2.0
+  resolution: "amqplib@npm:2.2.0"
+  checksum: 10c0/2ece1ee491d573f79ff9181f0460010ebb3e4b99186e0569ab292f3c5c8bd23d1eec553314d4e84eea9f8cea5a5fa87b4187eb3b4ead78abaa7c8db3c885a120
+  languageName: node
+  linkType: hard
+
 "ansi-align@npm:^3.0.0":
   version: 3.0.1
   resolution: "ansi-align@npm:3.0.1"
@@ -2729,10 +2745,12 @@ __metadata:
     "@nestjs/testing": "npm:^11"
     "@nestjs/throttler": "npm:^6.7.1"
     "@testcontainers/postgresql": "npm:^12.2.1"
+    "@testcontainers/rabbitmq": "npm:^12.2.1"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^22"
     "@types/pg": "npm:^8.23.1"
     "@types/supertest": "npm:^7.2.1"
+    amqplib: "npm:^2.2.0"
     drizzle-kit: "npm:^0.31.11"
     drizzle-orm: "npm:^0.45.4"
     eslint: "npm:^10.13.0"
