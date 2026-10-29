@@ -10,6 +10,7 @@ import { Env, validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { FxModule } from './modules/fx/fx.module';
 import { HealthModule } from './modules/health/health.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 
 @Module({
@@ -39,6 +40,7 @@ import { WalletsModule } from './modules/wallets/wallets.module';
     HealthModule,
     FxModule,
     WalletsModule,
+    TransactionsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
