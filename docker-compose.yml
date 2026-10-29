@@ -1,0 +1,37 @@
+name: borderless-rails
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: borderless
+      POSTGRES_PASSWORD: borderless
+      POSTGRES_DB: borderless
+    ports:
+      - '${POSTGRES_HOST_PORT:-5434}:5432' # not 5432, to avoid clashing with a local Postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U borderless -d borderless']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    image: borderless-rails-api:local
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://borderless:borderless@postgres:5432/borderless
+      RUN_MIGRATIONS: 'true'
+    ports:
+      - '${API_HOST_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
