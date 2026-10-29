@@ -501,6 +501,7 @@ Other teams (rewards, referrals, analytics) can react to wallet activity **witho
 - **History query uses `OR`** across `wallet_id` and `counterparty_wallet_id`. Both are indexed and Postgres can combine them, but at scale a `UNION ALL` of two index-ordered scans, or a per-wallet entries table, would be faster.
 - **Event ordering** is best-effort: a single relay publishes in `occurred_at` order, but retries and multiple relays can reorder. Events carry `occurredAt` and `balanceAfter` so consumers can reason about it.
 - **The free FX provider updates daily**, so "live" rates can be up to a day old; `providerUpdatedAt` exposes this.
+- **Subscribers receive events published after their queue is first bound** (standard topic-exchange semantics). On a brand-new stack, events from the first seconds, before the example consumer binds its queue, are not delivered to it. Queues are durable, so once bound nothing is missed across restarts, and outbox rows are kept, which makes a replay endpoint straightforward to add.
 - The example consumer's deduplication is in memory (illustrative); a real consumer would persist processed `eventId`s.
 - No outbox or idempotency-key retention jobs.
 - Rate limiting is per instance (in-memory throttler).

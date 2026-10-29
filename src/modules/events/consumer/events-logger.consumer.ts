@@ -14,7 +14,8 @@ const envelopeSchema = z.object({
 });
 
 const DEDUP_WINDOW = 10_000;
-const MAX_RECONNECT_DELAY_MS = 30_000;
+// Kept short so that on a cold start the queue is bound soon after the broker accepts connections.
+const MAX_RECONNECT_DELAY_MS = 5_000;
 
 /**
  * Example subscriber, running in the API process. It is wired exactly as another team's
