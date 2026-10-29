@@ -49,6 +49,23 @@ export function crossRate(usdRateFrom: ScaledRate, usdRateTo: ScaledRate): Scale
 }
 
 /**
+ * Converts using the exact ratio of two USD-pivoted quotes, rounding down once at the end:
+ * dest = amount × usdRateTo / usdRateFrom. Preferred over `convert` with a derived cross rate,
+ * which would round twice (e.g. 15,000 cNGN at 1/1500 would give 9.999999 USDx instead of 10).
+ */
+export function convertViaUsd(
+  amount: Units,
+  from: Currency,
+  to: Currency,
+  usdRateFrom: ScaledRate,
+  usdRateTo: ScaledRate,
+): Units {
+  const fromDecimals = BigInt(CURRENCY_INFO[from].decimals);
+  const toDecimals = BigInt(CURRENCY_INFO[to].decimals);
+  return (amount * usdRateTo * 10n ** toDecimals) / (usdRateFrom * 10n ** fromDecimals);
+}
+
+/**
  * Converts an amount with the given rate. Rounds down (truncates): the recipient never
  * receives more than the exact value; the dropped remainder is below one base unit.
  */

@@ -5,7 +5,7 @@ export default defineConfig({
   oxc: { decorator: { legacy: true, emitDecoratorMetadata: true } },
   test: {
     environment: 'node',
-    env: { NODE_ENV: 'test', LOG_LEVEL: 'silent' },
+    env: { NODE_ENV: 'test', LOG_LEVEL: 'silent', FX_REFRESH_INTERVAL_MS: '0' },
     projects: [
       {
         extends: true,

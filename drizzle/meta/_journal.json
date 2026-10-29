@@ -8,6 +8,13 @@
       "when": 1793274337358,
       "tag": "0000_wallets",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793274518622,
+      "tag": "0001_fx_rates",
+      "breakpoints": true
     }
   ]
 }

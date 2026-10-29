@@ -9,3 +9,8 @@ export const money = customType<{ data: bigint; driverData: string }>({
   fromDriver: (value) => BigInt(value),
   toDriver: (value) => value.toString(),
 });
+
+/** Exchange rate as an exact decimal string, numeric(38,18). */
+export const rate = customType<{ data: string; driverData: string }>({
+  dataType: () => 'numeric(38, 18)',
+});

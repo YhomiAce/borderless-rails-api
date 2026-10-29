@@ -4,17 +4,22 @@ import { DRIZZLE } from '../../database/database.constants';
 import { uniqueViolation } from '../../database/pg-errors';
 import { balances, wallets } from '../../database/schema';
 import { Database } from '../../database/types';
-import { CURRENCIES } from '../../domain/currency';
-import { WalletWithBalances } from './wallets.presenter';
+import { CURRENCIES, Currency } from '../../domain/currency';
+import { Units } from '../../domain/money';
+import { RatesService } from '../fx/rates.service';
+import { WalletView } from './wallets.presenter';
 import { WalletExistsError, WalletNotFoundError } from './wallets.errors';
 
 @Injectable()
 export class WalletsService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly rates: RatesService,
+  ) {}
 
-  async create(input: { email?: string; phone?: string }): Promise<WalletWithBalances> {
+  async create(input: { email?: string; phone?: string }): Promise<WalletView> {
     try {
-      return await this.db.transaction(async (tx) => {
+      const wallet = await this.db.transaction(async (tx) => {
         const [wallet] = await tx
           .insert(wallets)
           .values({ email: input.email ?? null, phone: input.phone ?? null })
@@ -29,8 +34,9 @@ export class WalletsService {
           })),
         );
 
-        return { wallet, balances: CURRENCIES.map((currency) => ({ currency, amount: 0n })) };
+        return wallet;
       });
+      return this.withValuation(wallet, new Map());
     } catch (error) {
       // The unique constraints are the source of truth, which also makes concurrent creates safe.
       const constraint = uniqueViolation(error);
@@ -40,7 +46,7 @@ export class WalletsService {
     }
   }
 
-  async findById(walletId: string): Promise<WalletWithBalances> {
+  async findById(walletId: string): Promise<WalletView> {
     const [wallet] = await this.db
       .select()
       .from(wallets)
@@ -51,14 +57,21 @@ export class WalletsService {
       .select({ currency: balances.currency, amount: balances.amount })
       .from(balances)
       .where(eq(balances.walletId, walletId));
-    const byCurrency = new Map(rows.map((r) => [r.currency, r.amount]));
+    return this.withValuation(wallet, new Map(rows.map((r) => [r.currency, r.amount])));
+  }
 
-    return {
-      wallet,
-      balances: CURRENCIES.map((currency) => ({
-        currency,
-        amount: byCurrency.get(currency) ?? 0n,
-      })),
-    };
+  /** Values each balance in USD at current rates (rounded down) and sums them. */
+  private withValuation(wallet: WalletView['wallet'], amounts: Map<Currency, Units>): WalletView {
+    let totalUsd = 0n;
+    let ratesAsOf: Date | undefined;
+    const balancesView = CURRENCIES.map((currency) => {
+      const amount = amounts.get(currency) ?? 0n;
+      const quote = this.rates.quote(currency, 'USDx');
+      const usdValue = this.rates.convert(amount, quote);
+      totalUsd += usdValue;
+      if (!ratesAsOf || quote.refreshedAt < ratesAsOf) ratesAsOf = quote.refreshedAt;
+      return { currency, amount, usdValue };
+    });
+    return { wallet, balances: balancesView, totalUsd, ratesAsOf: ratesAsOf ?? new Date() };
   }
 }

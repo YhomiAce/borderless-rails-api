@@ -1,18 +1,24 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { RatesService } from '../../src/modules/fx/rates.service';
 import { createTestApp } from '../setup/app';
 import { createTestDb, resetDatabase } from '../setup/db';
 
 describe('Wallets API', () => {
   const { pool } = createTestDb();
   let app: INestApplication;
+  let rates: RatesService;
   const http = () => request(app.getHttpServer());
 
   beforeAll(async () => {
-    app = await createTestApp();
+    ({ app, rates } = await createTestApp());
   });
-  beforeEach(() => resetDatabase(pool));
+  beforeEach(async () => {
+    await resetDatabase(pool);
+    await rates.onModuleInit(); // re-seed rates removed by the reset
+    await rates.refresh(); // fake provider: USDx 1, EURx 0.8, cNGN 1500, cGHS 15, cXAF 600
+  });
   afterAll(async () => {
     await app.close();
     await pool.end();
@@ -30,7 +36,10 @@ describe('Wallets API', () => {
         balances: ['cNGN', 'cGHS', 'cXAF', 'USDx', 'EURx'].map((currency) => ({
           currency,
           amount: '0.000000',
+          usdValue: '0.000000',
         })),
+        totalUsd: '0.000000',
+        ratesAsOf: expect.any(String),
       });
     });
 
@@ -86,6 +95,35 @@ describe('Wallets API', () => {
       const created = await http().post('/v1/wallets').send({ email: 'get@example.com' });
       const res = await http().get(`/v1/wallets/${created.body.id}`).expect(200);
       expect(res.body).toEqual(created.body);
+    });
+
+    it('values every balance in USD and totals them', async () => {
+      const created = await http().post('/v1/wallets').send({ email: 'rich@example.com' });
+      await pool.query(
+        `UPDATE balances SET amount = CASE currency
+           WHEN 'cNGN' THEN 15000000000 -- 15,000 cNGN = 10 USD
+           WHEN 'EURx' THEN 8000000     -- 8 EURx      = 10 USD
+           WHEN 'USDx' THEN 5500000     -- 5.5 USDx
+           ELSE 0 END
+         WHERE wallet_id = $1`,
+        [created.body.id],
+      );
+
+      const res = await http().get(`/v1/wallets/${created.body.id}`).expect(200);
+      const byCurrency = Object.fromEntries(
+        res.body.balances.map((b: { currency: string }) => [b.currency, b]),
+      );
+      expect(byCurrency.cNGN).toEqual({
+        currency: 'cNGN',
+        amount: '15000.000000',
+        usdValue: '10.000000',
+      });
+      expect(byCurrency.EURx).toEqual({
+        currency: 'EURx',
+        amount: '8.000000',
+        usdValue: '10.000000',
+      });
+      expect(res.body.totalUsd).toBe('25.500000');
     });
 
     it('returns 404 for an unknown wallet', async () => {

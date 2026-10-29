@@ -5,14 +5,18 @@ import { Wallet } from '../../database/schema';
 export interface WalletBalance {
   currency: Currency;
   amount: Units;
+  usdValue: Units;
 }
 
-export interface WalletWithBalances {
+export interface WalletView {
   wallet: Wallet;
   balances: WalletBalance[];
+  totalUsd: Units;
+  /** Refresh time of the oldest rate used for the USD valuation. */
+  ratesAsOf: Date;
 }
 
-export function presentWallet({ wallet, balances }: WalletWithBalances) {
+export function presentWallet({ wallet, balances, totalUsd, ratesAsOf }: WalletView) {
   return {
     id: wallet.id,
     email: wallet.email,
@@ -21,6 +25,9 @@ export function presentWallet({ wallet, balances }: WalletWithBalances) {
     balances: balances.map((b) => ({
       currency: b.currency,
       amount: formatAmount(b.amount, b.currency),
+      usdValue: formatAmount(b.usdValue, 'USDx'),
     })),
+    totalUsd: formatAmount(totalUsd, 'USDx'),
+    ratesAsOf: ratesAsOf.toISOString(),
   };
 }

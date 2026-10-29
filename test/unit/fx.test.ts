@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   convert,
+  convertViaUsd,
   crossRate,
   formatRate,
   InvalidRateError,
@@ -68,5 +69,32 @@ describe('convert', () => {
     const amount = parseAmount('1000000000000000', 'cNGN'); // 1e15 cNGN
     const rate = crossRate(parseRate('1500'), RATE_SCALE);
     expect(convert(amount, 'cNGN', 'USDx', rate)).toBe(666_666_666_666_666_000n); // 666,666,666,666.666000 USDx
+  });
+});
+
+describe('convertViaUsd', () => {
+  const usdNgn = parseRate('1500');
+  const usdEur = parseRate('0.8');
+
+  it('rounds once, so round-number conversions stay exact', () => {
+    const amount = parseAmount('15000', 'cNGN');
+    // Via the truncated cross rate this would be 9.999999 USDx.
+    expect(convert(amount, 'cNGN', 'USDx', crossRate(usdNgn, RATE_SCALE))).toBe(9_999_999n);
+    expect(convertViaUsd(amount, 'cNGN', 'USDx', usdNgn, RATE_SCALE)).toBe(10_000_000n);
+  });
+
+  it('converts between two non-USD currencies through the USD pivot', () => {
+    expect(convertViaUsd(parseAmount('8', 'EURx'), 'EURx', 'cNGN', usdEur, usdNgn)).toBe(
+      parseAmount('15000', 'cNGN'),
+    );
+  });
+
+  it('still rounds down when the result is not exact', () => {
+    expect(convertViaUsd(1n, 'cNGN', 'USDx', usdNgn, RATE_SCALE)).toBe(0n);
+    expect(convertViaUsd(parseAmount('1', 'cNGN'), 'cNGN', 'USDx', usdNgn, RATE_SCALE)).toBe(666n);
+  });
+
+  it('is the identity for the same currency', () => {
+    expect(convertViaUsd(123_456n, 'cGHS', 'cGHS', usdNgn, usdNgn)).toBe(123_456n);
   });
 });

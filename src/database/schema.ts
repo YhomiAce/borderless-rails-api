@@ -11,7 +11,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { CURRENCIES } from '../domain/currency';
-import { money } from './columns';
+import { money, rate } from './columns';
 
 // Tables are introduced feature by feature, each with its own migration (`yarn db:generate --name <feature>`).
 
@@ -62,5 +62,19 @@ export const balances = pgTable(
   ],
 );
 
+/** Latest USD-pivoted quote per currency. Cross rates are derived from these. */
+export const fxRates = pgTable('fx_rates', {
+  currency: currencyEnum('currency').primaryKey(),
+  /** Units of this currency per 1 USD. */
+  usdRate: rate('usd_rate').notNull(),
+  /** Where the quote came from, e.g. "open.er-api.com" or "fallback". */
+  source: text('source').notNull(),
+  /** When this service last stored the quote. */
+  refreshedAt: timestamp('refreshed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  /** When the provider itself last updated the quote, if it says. */
+  providerUpdatedAt: timestamp('provider_updated_at', { withTimezone: true, mode: 'date' }),
+});
+
 export type Wallet = typeof wallets.$inferSelect;
 export type Balance = typeof balances.$inferSelect;
+export type FxRateRow = typeof fxRates.$inferSelect;
