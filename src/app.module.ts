@@ -7,6 +7,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { Env, validateEnv } from './config/env';
+import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { HealthModule } from './modules/health/health.module';
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
+    DatabaseModule,
     HealthModule,
   ],
   providers: [

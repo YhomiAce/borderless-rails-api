@@ -5,3 +5,4 @@ drizzle/meta
 .yarn
 yarn.lock
 openapi.json
+docs/plan
