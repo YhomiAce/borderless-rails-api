@@ -1,13 +1,18 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigserial,
   check,
   foreignKey,
+  index,
+  integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { CURRENCIES } from '../domain/currency';
@@ -75,6 +80,94 @@ export const fxRates = pgTable('fx_rates', {
   providerUpdatedAt: timestamp('provider_updated_at', { withTimezone: true, mode: 'date' }),
 });
 
+export const transactionTypeEnum = pgEnum('transaction_type', ['DEPOSIT', 'SWAP', 'TRANSFER']);
+// Operations are synchronous: a transaction row only exists once it has completed.
+export const transactionStatusEnum = pgEnum('transaction_status', ['COMPLETED']);
+
+/** One business event (deposit, swap or transfer). Its money movements live in ledger_entries. */
+export const transactions = pgTable(
+  'transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: transactionTypeEnum('type').notNull(),
+    status: transactionStatusEnum('status').notNull().default('COMPLETED'),
+    /** Initiator: the depositor, the swapper or the sender. */
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => wallets.id),
+    /** Transfer receiver. */
+    counterpartyWalletId: uuid('counterparty_wallet_id').references(() => wallets.id),
+    sourceCurrency: currencyEnum('source_currency').notNull(),
+    sourceAmount: money('source_amount').notNull(),
+    destinationCurrency: currencyEnum('destination_currency').notNull(),
+    destinationAmount: money('destination_amount').notNull(),
+    /** Rate applied, source → destination (1 when the currencies match). */
+    rate: rate('rate').notNull(),
+    rateSource: text('rate_source').notNull(),
+    rateTimestamp: timestamp('rate_timestamp', { withTimezone: true, mode: 'date' }),
+    idempotencyKey: text('idempotency_key').notNull(),
+    reference: text('reference'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Second guarantee (after idempotency_keys) that one request can't produce two transactions.
+    uniqueIndex('transactions_wallet_idempotency_key').on(t.walletId, t.idempotencyKey),
+    index('transactions_wallet_history_idx').on(t.walletId, t.createdAt.desc(), t.id.desc()),
+    index('transactions_counterparty_history_idx').on(
+      t.counterpartyWalletId,
+      t.createdAt.desc(),
+      t.id.desc(),
+    ),
+    check(
+      'transactions_amounts_positive_check',
+      sql`${t.sourceAmount} > 0 AND ${t.destinationAmount} > 0`,
+    ),
+  ],
+);
+
+/** Append-only double-entry ledger. Entries of a transaction sum to zero per currency. */
+export const ledgerEntries = pgTable(
+  'ledger_entries',
+  {
+    id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => transactions.id),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => wallets.id),
+    currency: currencyEnum('currency').notNull(),
+    /** Signed: debit < 0, credit > 0. */
+    amount: money('amount').notNull(),
+    balanceAfter: money('balance_after').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('ledger_entries_transaction_idx').on(t.transactionId),
+    index('ledger_entries_wallet_currency_idx').on(t.walletId, t.currency),
+    check('ledger_entries_non_zero_check', sql`${t.amount} <> 0`),
+  ],
+);
+
+/** Stored outcome of a money-moving request, keyed by the client's Idempotency-Key. */
+export const idempotencyKeys = pgTable(
+  'idempotency_keys',
+  {
+    /** Keys are scoped (e.g. per wallet) so different clients can't collide. */
+    scope: text('scope').notNull(),
+    key: text('key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    responseStatus: integer('response_status'),
+    responseBody: jsonb('response_body'),
+    transactionId: uuid('transaction_id').references(() => transactions.id),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ name: 'idempotency_keys_pkey', columns: [t.scope, t.key] })],
+);
+
 export type Wallet = typeof wallets.$inferSelect;
 export type Balance = typeof balances.$inferSelect;
 export type FxRateRow = typeof fxRates.$inferSelect;
+export type Transaction = typeof transactions.$inferSelect;
+export type NewTransaction = typeof transactions.$inferInsert;
+export type LedgerEntry = typeof ledgerEntries.$inferSelect;
