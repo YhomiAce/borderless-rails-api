@@ -8,6 +8,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { Env, validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
+import { EventsModule } from './modules/events/events.module';
 import { FxModule } from './modules/fx/fx.module';
 import { HealthModule } from './modules/health/health.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
@@ -37,6 +38,7 @@ import { WalletsModule } from './modules/wallets/wallets.module';
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     DatabaseModule,
+    EventsModule,
     HealthModule,
     FxModule,
     WalletsModule,

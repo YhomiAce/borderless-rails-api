@@ -7,6 +7,7 @@ import { Database, DbTransaction } from '../../database/types';
 import { Currency } from '../../domain/currency';
 import { formatRate } from '../../domain/fx';
 import { parseAmount, Units } from '../../domain/money';
+import { OutboxService } from '../events/outbox.service';
 import { RatesService } from '../fx/rates.service';
 import { IdempotencyService, IdempotentResult } from '../idempotency/idempotency.service';
 import { hashRequest } from '../idempotency/request-hash';
@@ -54,6 +55,7 @@ export class MoneyMovementService {
     private readonly ledger: LedgerService,
     private readonly idempotency: IdempotencyService,
     private readonly rates: RatesService,
+    private readonly outbox: OutboxService,
   ) {}
 
   deposit(cmd: DepositCommand): Promise<Result> {
@@ -190,7 +192,14 @@ export class MoneyMovementService {
   ): Promise<Transaction> {
     const [created] = await tx.insert(transactions).values(values).returning();
     if (!created) throw new Error('Transaction insert returned no row');
-    await this.ledger.post(tx, created.id, lines);
+    await this.ledger.post(tx, created, lines);
+    await this.outbox.record(tx, [
+      {
+        type: 'transaction.completed',
+        aggregateId: created.walletId,
+        data: presentTransaction(created),
+      },
+    ]);
     return created;
   }
 

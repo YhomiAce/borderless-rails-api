@@ -6,6 +6,8 @@ import { balances, wallets } from '../../database/schema';
 import { Database } from '../../database/types';
 import { CURRENCIES, Currency } from '../../domain/currency';
 import { Units } from '../../domain/money';
+import { maskEmail, maskPhone } from '../events/domain-events';
+import { OutboxService } from '../events/outbox.service';
 import { RatesService } from '../fx/rates.service';
 import { WalletView } from './wallets.presenter';
 import { WalletExistsError, WalletNotFoundError } from './wallets.errors';
@@ -15,6 +17,7 @@ export class WalletsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly rates: RatesService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async create(input: { email?: string; phone?: string }): Promise<WalletView> {
@@ -34,6 +37,18 @@ export class WalletsService {
           })),
         );
 
+        await this.outbox.record(tx, [
+          {
+            type: 'wallet.created',
+            aggregateId: wallet.id,
+            data: {
+              walletId: wallet.id,
+              email: maskEmail(wallet.email),
+              phone: maskPhone(wallet.phone),
+              createdAt: wallet.createdAt.toISOString(),
+            },
+          },
+        ]);
         return wallet;
       });
       return this.withValuation(wallet, new Map());

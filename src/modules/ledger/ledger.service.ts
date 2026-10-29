@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { balances, ledgerEntries } from '../../database/schema';
+import { balances, ledgerEntries, Transaction } from '../../database/schema';
 import { DbTransaction } from '../../database/types';
 import { Currency } from '../../domain/currency';
-import { Units } from '../../domain/money';
+import { formatAmount, Units } from '../../domain/money';
+import { OutboxService } from '../events/outbox.service';
 import { InsufficientFundsError } from './ledger.errors';
 
 export interface LedgerLine {
@@ -32,7 +33,14 @@ const keyOf = (walletId: string, currency: Currency) => `${walletId}:${currency}
  */
 @Injectable()
 export class LedgerService {
-  async post(tx: DbTransaction, transactionId: string, lines: LedgerLine[]): Promise<PostedLine[]> {
+  constructor(private readonly outbox: OutboxService) {}
+
+  /** Posts the lines and emits wallet.credited / wallet.debited for every user balance change. */
+  async post(
+    tx: DbTransaction,
+    transaction: Pick<Transaction, 'id' | 'type'>,
+    lines: LedgerLine[],
+  ): Promise<PostedLine[]> {
     assertBalanced(lines);
 
     // Lock every affected balance row, always in the same order (wallet, currency), so two
@@ -87,12 +95,30 @@ export class LedgerService {
     }
     await tx.insert(ledgerEntries).values(
       posted.map((p) => ({
-        transactionId,
+        transactionId: transaction.id,
         walletId: p.walletId,
         currency: p.currency,
         amount: p.amount,
         balanceAfter: p.balanceAfter,
       })),
+    );
+
+    await this.outbox.record(
+      tx,
+      posted
+        .filter((p) => locked.get(keyOf(p.walletId, p.currency))!.kind === 'USER')
+        .map((p) => ({
+          type: p.amount > 0n ? ('wallet.credited' as const) : ('wallet.debited' as const),
+          aggregateId: p.walletId,
+          data: {
+            walletId: p.walletId,
+            currency: p.currency,
+            amount: formatAmount(p.amount > 0n ? p.amount : -p.amount, p.currency),
+            balanceAfter: formatAmount(p.balanceAfter, p.currency),
+            transactionId: transaction.id,
+            transactionType: transaction.type,
+          },
+        })),
     );
 
     return posted;

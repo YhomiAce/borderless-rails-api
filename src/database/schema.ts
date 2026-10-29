@@ -165,9 +165,40 @@ export const idempotencyKeys = pgTable(
   (t) => [primaryKey({ name: 'idempotency_keys_pkey', columns: [t.scope, t.key] })],
 );
 
+/**
+ * Transactional outbox: domain events written in the same DB transaction as the change they
+ * describe, then published to RabbitMQ by the worker's relay.
+ */
+export const outboxEvents = pgTable(
+  'outbox_events',
+  {
+    /** Also the public eventId (AMQP messageId) consumers deduplicate on. */
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: text('type').notNull(),
+    version: integer('version').notNull().default(1),
+    aggregateId: uuid('aggregate_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    // clock_timestamp(), unlike now(), advances within a transaction, so events written
+    // together keep the order they were recorded in.
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+  },
+  (t) => [
+    // Keeps the relay's "what's unpublished?" query cheap however large the table grows.
+    index('outbox_events_unpublished_idx')
+      .on(t.occurredAt, t.id)
+      .where(sql`${t.publishedAt} IS NULL`),
+  ],
+);
+
 export type Wallet = typeof wallets.$inferSelect;
 export type Balance = typeof balances.$inferSelect;
 export type FxRateRow = typeof fxRates.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
+export type OutboxEvent = typeof outboxEvents.$inferSelect;

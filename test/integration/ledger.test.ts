@@ -4,13 +4,14 @@ import { transactions } from '../../src/database/schema';
 import { DbTransaction } from '../../src/database/types';
 import { Currency } from '../../src/domain/currency';
 import { InsufficientFundsError } from '../../src/modules/ledger/ledger.errors';
+import { OutboxService } from '../../src/modules/events/outbox.service';
 import { LedgerLine, LedgerService } from '../../src/modules/ledger/ledger.service';
 import { createTestDb, resetDatabase } from '../setup/db';
 import { expectLedgerInvariants } from '../setup/invariants';
 
 describe('LedgerService', () => {
   const { pool, db } = createTestDb();
-  const ledger = new LedgerService();
+  const ledger = new LedgerService(new OutboxService());
   let mint: string;
 
   async function createWallet(kind: 'USER' | 'SYSTEM' = 'USER'): Promise<string> {
@@ -27,7 +28,7 @@ describe('LedgerService', () => {
     return id;
   }
 
-  async function insertTransaction(tx: DbTransaction, walletId: string): Promise<string> {
+  async function insertTransaction(tx: DbTransaction, walletId: string) {
     const [row] = await tx
       .insert(transactions)
       .values({
@@ -41,8 +42,8 @@ describe('LedgerService', () => {
         rateSource: 'identity',
         idempotencyKey: randomUUID(),
       })
-      .returning({ id: transactions.id });
-    return row!.id;
+      .returning({ id: transactions.id, type: transactions.type });
+    return row!;
   }
 
   /** Posts lines in their own DB transaction, as a service would. */

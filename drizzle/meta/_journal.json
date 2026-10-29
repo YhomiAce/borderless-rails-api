@@ -29,6 +29,13 @@
       "when": 1793275241415,
       "tag": "0003_system_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793281900590,
+      "tag": "0004_outbox",
+      "breakpoints": true
     }
   ]
 }
