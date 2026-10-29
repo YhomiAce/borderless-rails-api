@@ -8,7 +8,8 @@ export const currencySchema = z.enum(CURRENCIES);
 export const amountSchema = z
   .string()
   .regex(/^\d{1,24}(\.\d{1,6})?$/, 'Must be a decimal string with at most 6 decimal places')
-  .refine((v) => /[1-9]/.test(v), 'Must be greater than zero');
+  .refine((v) => /[1-9]/.test(v), 'Must be greater than zero')
+  .meta({ example: '100.50', description: 'Decimal string, > 0, at most 6 decimal places' });
 
 const referenceSchema = z.string().trim().min(1).max(140).optional();
 

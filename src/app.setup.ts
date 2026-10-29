@@ -9,10 +9,15 @@ import { Logger } from 'nestjs-pino';
  */
 export function configureApp(app: INestApplication): void {
   const express = app as NestExpressApplication;
+  configureRouting(app);
   express.useLogger(app.get(Logger));
   express.use(helmet());
   express.useBodyParser('json', { limit: '100kb' });
   express.disable('x-powered-by');
-  express.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   express.enableShutdownHooks();
+}
+
+/** URI versioning (/v1/...). Separate so OpenAPI generation can apply it without a full boot. */
+export function configureRouting(app: INestApplication): void {
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 }

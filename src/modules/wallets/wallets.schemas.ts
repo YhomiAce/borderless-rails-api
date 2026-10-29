@@ -5,7 +5,12 @@ import { z } from 'zod';
 /** Local numbers without a country code (e.g. 0803…) are read as Nigerian. */
 export const DEFAULT_PHONE_REGION = 'NG';
 
-const email = z.string().trim().toLowerCase().pipe(z.email().max(254));
+const email = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email().max(254))
+  .meta({ example: 'ada@example.com' });
 
 const phone = z
   .string()
@@ -17,6 +22,10 @@ const phone = z
       return z.NEVER;
     }
     return parsed.number; // E.164, e.g. +2348031234567
+  })
+  .meta({
+    example: '08031234567',
+    description: 'Any common format; local numbers are read as Nigerian. Stored as E.164.',
   });
 
 export const createWalletSchema = z

@@ -20,13 +20,16 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "openapi:generate": "nest build && node dist/scripts/generate-openapi.js",
+    "db:seed": "node dist/scripts/seed.js"
   },
   "dependencies": {
     "@nestjs/common": "^11",
     "@nestjs/config": "^4",
     "@nestjs/core": "^11",
     "@nestjs/platform-express": "^11",
+    "@nestjs/swagger": "^11",
     "@nestjs/terminus": "^11",
     "@nestjs/throttler": "^6.7.1",
     "amqplib": "^2.2.0",
