@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChannelModel, ConfirmChannel, connect } from 'amqplib';
-import { WorkerEnv } from '../../../config/worker-env';
+import { Env } from '../../../config/env';
 import { EventEnvelope } from '../domain-events';
 import { EventPublisher } from './event-publisher';
 
@@ -19,8 +19,10 @@ export class RabbitMqPublisher implements EventPublisher, OnModuleDestroy {
   private connection: ChannelModel | null = null;
   private channel: Promise<ConfirmChannel> | null = null;
 
-  constructor(config: ConfigService<WorkerEnv, true>) {
-    this.url = config.get('RABBITMQ_URL', { infer: true });
+  constructor(config: ConfigService<Env, true>) {
+    const url = config.get('RABBITMQ_URL', { infer: true });
+    if (!url) throw new Error('RABBITMQ_URL is required for the outbox relay');
+    this.url = url;
     this.exchange = config.get('RABBITMQ_EXCHANGE', { infer: true });
     this.timeoutMs = config.get('RABBITMQ_PUBLISH_TIMEOUT_MS', { infer: true });
   }

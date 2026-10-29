@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { WorkerEnv } from '../../../config/worker-env';
+import { Env } from '../../../config/env';
 import { DRIZZLE } from '../../../database/database.constants';
 import { outboxEvents } from '../../../database/schema';
 import { Database } from '../../../database/types';
@@ -30,14 +30,14 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(EVENT_PUBLISHER) private readonly publisher: EventPublisher,
-    config: ConfigService<WorkerEnv, true>,
+    config: ConfigService<Env, true>,
   ) {
     this.intervalMs = config.get('OUTBOX_POLL_INTERVAL_MS', { infer: true });
     this.batchSize = config.get('OUTBOX_BATCH_SIZE', { infer: true });
   }
 
   onApplicationBootstrap(): void {
-    if (this.intervalMs > 0) this.schedule(0);
+    this.schedule(0);
   }
 
   onModuleDestroy(): void {

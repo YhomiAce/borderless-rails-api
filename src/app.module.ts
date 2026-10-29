@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { Env, validateEnv } from './config/env';
+import { Env, isEnabled, validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
+import { EventsLoggerModule } from './modules/events/consumer/events-logger.module';
 import { EventsModule } from './modules/events/events.module';
+import { EventsRelayModule } from './modules/events/relay/events-relay.module';
 import { FxModule } from './modules/fx/fx.module';
 import { HealthModule } from './modules/health/health.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
@@ -43,6 +45,12 @@ import { WalletsModule } from './modules/wallets/wallets.module';
     FxModule,
     WalletsModule,
     TransactionsModule,
+    // Background event processing runs in the same process; each part can be switched off
+    // (or moved to its own process) through configuration alone.
+    ConditionalModule.registerWhen(EventsRelayModule, (env) => isEnabled(env.OUTBOX_RELAY_ENABLED)),
+    ConditionalModule.registerWhen(EventsLoggerModule, (env) =>
+      isEnabled(env.EVENTS_LOGGER_ENABLED),
+    ),
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

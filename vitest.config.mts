@@ -5,7 +5,14 @@ export default defineConfig({
   oxc: { decorator: { legacy: true, emitDecoratorMetadata: true } },
   test: {
     environment: 'node',
-    env: { NODE_ENV: 'test', LOG_LEVEL: 'silent', FX_REFRESH_INTERVAL_MS: '0' },
+    env: {
+      NODE_ENV: 'test',
+      LOG_LEVEL: 'silent',
+      FX_REFRESH_INTERVAL_MS: '0',
+      // Tests drive the relay and consumer directly instead of running their background loops.
+      OUTBOX_RELAY_ENABLED: 'false',
+      EVENTS_LOGGER_ENABLED: 'false',
+    },
     projects: [
       {
         extends: true,

@@ -1,10 +1,5 @@
 name: borderless-rails
 
-x-app: &app
-  build: .
-  image: borderless-rails-api:local
-  restart: unless-stopped
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -38,50 +33,26 @@ services:
       timeout: 5s
       retries: 20
 
-  # HTTP API. Runs migrations on boot; writes domain events to the outbox only.
+  # The application: HTTP API plus, in the same process, the outbox relay that publishes
+  # domain events to RabbitMQ and an example subscriber that logs them.
   api:
-    <<: *app
+    build: .
+    image: borderless-rails-api:local
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
       LOG_LEVEL: info
       DATABASE_URL: postgres://borderless:borderless@postgres:5432/borderless
       RUN_MIGRATIONS: 'true'
+      RABBITMQ_URL: amqp://borderless:borderless@rabbitmq:5672
+      OUTBOX_RELAY_ENABLED: 'true'
+      EVENTS_LOGGER_ENABLED: 'true'
     ports:
       - '${API_HOST_PORT:-3000}:3000'
     depends_on:
       postgres:
         condition: service_healthy
-
-  # Relays committed outbox events to the RabbitMQ topic exchange.
-  worker:
-    <<: *app
-    command: ['node', 'dist/worker.js']
-    environment:
-      NODE_ENV: production
-      LOG_LEVEL: info
-      DATABASE_URL: postgres://borderless:borderless@postgres:5432/borderless
-      RUN_MIGRATIONS: 'false' # the api owns migrations
-      RABBITMQ_URL: amqp://borderless:borderless@rabbitmq:5672
-    healthcheck:
-      disable: true
-    depends_on:
-      api:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # Example subscriber other teams can copy: binds its own queue to every event and logs it.
-  events-logger:
-    <<: *app
-    command: ['node', 'dist/consumer.js']
-    environment:
-      RABBITMQ_URL: amqp://borderless:borderless@rabbitmq:5672
-      CONSUMER_QUEUE: borderless.events-logger
-      CONSUMER_BINDING: '#'
-    healthcheck:
-      disable: true
-    depends_on:
       rabbitmq:
         condition: service_healthy
 

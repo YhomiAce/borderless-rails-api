@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { Channel, ChannelModel, connect, GetMessage } from 'amqplib';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
-import { WorkerEnv } from '../../src/config/worker-env';
+import { Env } from '../../src/config/env';
 import { EventEnvelope } from '../../src/modules/events/domain-events';
 import { OutboxService } from '../../src/modules/events/outbox.service';
 import { EventPublisher } from '../../src/modules/events/relay/event-publisher';
@@ -13,16 +13,16 @@ import { createTestDb, resetDatabase } from '../setup/db';
 describe('Outbox relay → RabbitMQ', () => {
   const { pool, db } = createTestDb();
   const exchange = `test.events.${randomUUID()}`;
-  const settings: Partial<WorkerEnv> = {
+  const settings: Partial<Env> = {
     RABBITMQ_URL: inject('rabbitmqUrl'),
     RABBITMQ_EXCHANGE: exchange,
     RABBITMQ_PUBLISH_TIMEOUT_MS: 5_000,
-    OUTBOX_POLL_INTERVAL_MS: 0,
+    OUTBOX_POLL_INTERVAL_MS: 500,
     OUTBOX_BATCH_SIZE: 100,
   };
   const config = {
-    get: (key: keyof WorkerEnv) => settings[key],
-  } as unknown as ConfigService<WorkerEnv, true>;
+    get: (key: keyof Env) => settings[key],
+  } as unknown as ConfigService<Env, true>;
 
   const publisher = new RabbitMqPublisher(config);
   const relay = new OutboxRelay(db, publisher, config);
@@ -133,8 +133,8 @@ describe('Outbox relay → RabbitMQ', () => {
   it('lets concurrent relays share the work without double-publishing', async () => {
     await record(40);
     const second = new OutboxRelay(db, publisher, {
-      get: (key: keyof WorkerEnv) => (key === 'OUTBOX_BATCH_SIZE' ? 10 : settings[key]),
-    } as unknown as ConfigService<WorkerEnv, true>);
+      get: (key: keyof Env) => (key === 'OUTBOX_BATCH_SIZE' ? 10 : settings[key]),
+    } as unknown as ConfigService<Env, true>);
 
     let total = 0;
     for (let round = 0; round < 10 && total < 40; round++) {

@@ -20,9 +20,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
-    "db:generate": "drizzle-kit generate",
-    "start:worker": "node dist/worker.js",
-    "start:consumer": "node dist/consumer.js"
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@nestjs/common": "^11",
