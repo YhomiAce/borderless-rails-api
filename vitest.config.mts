@@ -1,9 +1,8 @@
-import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
-// SWC (not esbuild) so decorator metadata is emitted; Nest DI depends on it.
 export default defineConfig({
-  plugins: [swc.vite({ module: { type: 'es6' } })],
+  // Nest DI resolves constructor dependencies from decorator metadata, so Oxc must emit it.
+  oxc: { decorator: { legacy: true, emitDecoratorMetadata: true } },
   test: {
     environment: 'node',
     env: { NODE_ENV: 'test', LOG_LEVEL: 'silent' },
@@ -20,6 +19,8 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['test/integration/**/*.test.ts'],
+          globalSetup: ['test/setup/global-setup.ts'],
+          setupFiles: ['test/setup/integration-env.ts'],
           fileParallelism: false,
           testTimeout: 30_000,
           hookTimeout: 120_000,

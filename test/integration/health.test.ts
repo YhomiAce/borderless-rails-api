@@ -14,9 +14,10 @@ describe('GET /health', () => {
     await app.close();
   });
 
-  it('reports ok', async () => {
+  it('reports ok with a reachable database', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.info.database.status).toBe('up');
   });
 
   it('echoes a supplied request id', async () => {
